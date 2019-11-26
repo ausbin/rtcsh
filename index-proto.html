@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>rtcsh</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #000;
+            }
+
+            .terminal {
+                display: block;
+                margin: 64px auto 0 auto;
+                padding: 0;
+                width: 60em;
+                height: 24em;
+                font-family: monospace;
+                background-color: #111;
+                color: #eee;
+                border: 1px solid #333;
+                overflow: hidden;
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="container" />
+
+        <!-- Dependencies -->
+        <script src="REACT_URL"></script>
+        <script src="REACT_DOM_URL"></script>
+
+        <!-- Main -->
+        <script src="bundle.js"></script>
+    </body>
+</html>

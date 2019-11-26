@@ -1,0 +1,26 @@
+{
+  "name": "rtcsh",
+  "version": "1.0.0",
+  "description": "rtcsh",
+  "repository": "https://github.com/ausbin/rtcsh",
+  "scripts": {
+    "build": "webpack --mode=development && ./gen-html.sh dev",
+    "prodBuild": "webpack --mode=production && ./gen-html.sh prod",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Austin Adams <me@austinjadams.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^16.9.13",
+    "@types/react-dom": "^16.9.4",
+    "source-map-loader": "^0.2.4",
+    "ts-loader": "^6.2.1",
+    "typescript": "^3.7.2",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10"
+  },
+  "dependencies": {
+    "react": "^16.12.0",
+    "react-dom": "^16.12.0"
+  }
+}
