@@ -4,6 +4,7 @@ export interface TerminalState {
     text: string,
     typedLen: number,
     pendingCommands: string[],
+    files: Set<string>,
 }
 
 export class Terminal extends React.Component<{}, TerminalState> {
@@ -18,6 +19,7 @@ export class Terminal extends React.Component<{}, TerminalState> {
             text: this.PROMPT,
             typedLen: 0,
             pendingCommands: [],
+            files: new Set(),
         };
     }
 
@@ -40,28 +42,67 @@ export class Terminal extends React.Component<{}, TerminalState> {
         document.removeEventListener('keydown', this.onKeyDown);
     }
 
-    executeCommand = (command: string) => {
-        const argv = command.trim().split(/\s+/);
+    executeCommand = (commandText: string) => {
+        type Command = (argv: string[], prevState: TerminalState) => string|[string, Set<string>];
 
-        if (argv.length === 0) {
-            // empty command, no probs
-            return;
-        }
+        const unknownCommand: Command = argv => argv[0] + ': command not found';
+        const commands: {[cmd: string]: Command} = {
+            ls: (argv, prevState) => {
+                if (argv.length === 1) {
+                    return Array.from(prevState.files).sort().join('\t');
+                } else {
+                    return 'usage: ls';
+                }
+            },
 
-        const pushText = (text: string) => {this.setState(prevState => ({text: prevState.text + text + this.PROMPT}));};
+            touch: (argv, prevState) => {
+                if (argv.length === 2) {
+                    return ['', new Set([argv[1], ...prevState.files])];
+                } else {
+                    return 'usage: touch <file>';
+                }
+            },
 
-        switch (argv[0]) {
-            case 'ls':
-                pushText('bin\tetc\ttmp\n');
-                break;
+            rm: (argv, prevState) => {
+                if (argv.length === 2) {
+                    const fileName = argv[1];
 
-            case 'echo':
-                pushText(argv.slice(1).join(' ') + '\n');
-                break;
+                    const fixedSet = new Set(prevState.files);
+                    if (!fixedSet.delete(fileName)) {
+                        return 'rm: no such file ' + fileName;
+                    }
 
-            default:
-                pushText(argv[0] + ': command not found\n');
-        }
+                    return ['', fixedSet];
+                } else {
+                    return 'usage: rm <file>';
+                }
+            },
+
+            echo: argv => argv.slice(1).join(' '),
+
+            help: () => 'available commands:\n\n' +
+                        Object.keys(commands).filter(cmd => cmd !== '').sort().join('\n'),
+
+            '': () => '',
+        };
+
+
+        const argv = commandText.trim().split(/\s+/);
+        const command = commands[argv[0]] || unknownCommand;
+
+        this.setState(prevState => {
+            const result = command(argv, prevState);
+
+            let output, newFiles;
+            if (typeof result === 'string') {
+                output = result;
+                newFiles = prevState.files;
+            } else {
+                [output, newFiles] = result;
+            }
+
+            return {text: prevState.text + output + (output? '\n' : '') + this.PROMPT, files: newFiles};
+        });
     };
 
     onKeyDown = (e: KeyboardEvent) => {
@@ -73,9 +114,13 @@ export class Terminal extends React.Component<{}, TerminalState> {
         } else if (key === 'Backspace') {
             e.preventDefault();
             this.setState((prevState: TerminalState) => ({text: (prevState.text.length === 0 || prevState.typedLen === 0)? prevState.text : prevState.text.substring(0, prevState.text.length - 1), typedLen: Math.max(0, prevState.typedLen - 1)}));
+        // Useful GNU readline shortcut
+        } else if (key === 'u' && e.ctrlKey) {
+            e.preventDefault();
+            this.setState((prevState: TerminalState) => ({text: (prevState.text.length === 0 || prevState.typedLen === 0)? prevState.text : prevState.text.substring(0, prevState.text.length - prevState.typedLen), typedLen: 0}));
         } else if (key === 'Enter') {
             e.preventDefault();
-            this.setState((prevState: TerminalState) => ({text: prevState.text + '\n', typedLen: 0, pendingCommands: prevState.pendingCommands.concat([prevState.text.slice(-prevState.typedLen)])}));
+            this.setState((prevState: TerminalState) => ({text: prevState.text + '\n', typedLen: 0, pendingCommands: prevState.pendingCommands.concat([prevState.typedLen? prevState.text.slice(-prevState.typedLen) : ''])}));
         }
     };
 
