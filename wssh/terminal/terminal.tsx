@@ -7,8 +7,14 @@ export interface TerminalState {
     files: Set<string>,
 }
 
+interface StateUpdate {
+    action: 'delete'|'create',
+    file: string
+}
+
 export class Terminal extends React.Component<{}, TerminalState> {
     private PROMPT: string = '$ ';
+    private sock!: WebSocket;
     public cursorRef: React.RefObject<HTMLSpanElement>;
 
     constructor(props: {}) {
@@ -25,6 +31,18 @@ export class Terminal extends React.Component<{}, TerminalState> {
 
     componentDidMount() {
         document.addEventListener('keydown', this.onKeyDown);
+
+        this.sock = new WebSocket('ws://' + window.location.host + '/ws');
+        this.sock.addEventListener('error', (e) => {
+            console.error('websocket error', e);
+        });
+        this.sock.addEventListener('message', this.onSockMessage);
+    }
+
+    componentWillUnmount() {
+        document.removeEventListener('keydown', this.onKeyDown);
+
+        this.sock.close();
     }
 
     componentDidUpdate() {
@@ -38,12 +56,8 @@ export class Terminal extends React.Component<{}, TerminalState> {
         }
     }
 
-    componentWillUnmount() {
-        document.removeEventListener('keydown', this.onKeyDown);
-    }
-
     executeCommand = (commandText: string) => {
-        type Command = (argv: string[], prevState: TerminalState) => string|[string, Set<string>];
+        type Command = (argv: string[], prevState: TerminalState) => string|[string, StateUpdate];
 
         const unknownCommand: Command = argv => argv[0] + ': command not found';
         const commands: {[cmd: string]: Command} = {
@@ -57,7 +71,7 @@ export class Terminal extends React.Component<{}, TerminalState> {
 
             touch: (argv, prevState) => {
                 if (argv.length === 2) {
-                    return ['', new Set([argv[1], ...prevState.files])];
+                    return ['', {action: 'create', file: argv[1]}];
                 } else {
                     return 'usage: touch <file>';
                 }
@@ -66,13 +80,10 @@ export class Terminal extends React.Component<{}, TerminalState> {
             rm: (argv, prevState) => {
                 if (argv.length === 2) {
                     const fileName = argv[1];
-
-                    const fixedSet = new Set(prevState.files);
-                    if (!fixedSet.delete(fileName)) {
+                    if (!prevState.files.has(fileName)) {
                         return 'rm: no such file ' + fileName;
                     }
-
-                    return ['', fixedSet];
+                    return ['', {action: 'delete', file: fileName}];
                 } else {
                     return 'usage: rm <file>';
                 }
@@ -93,16 +104,51 @@ export class Terminal extends React.Component<{}, TerminalState> {
         this.setState(prevState => {
             const result = command(argv, prevState);
 
-            let output, newFiles;
+            let output, update;
             if (typeof result === 'string') {
                 output = result;
-                newFiles = prevState.files;
+                update = null;
             } else {
-                [output, newFiles] = result;
+                [output, update] = result;
             }
 
-            return {text: prevState.text + output + (output? '\n' : '') + this.PROMPT, files: newFiles};
+            if (update !== null)
+                this.sendUpdate(update);
+
+            return {text: prevState.text + output + (output? '\n' : '') + this.PROMPT};
         });
+    };
+
+    applyUpdate(files: Set<string>, update: StateUpdate): Set<string> {
+        if (update === null) {
+            return files;
+        }
+
+        switch (update.action) {
+            case 'create':
+                console.log('creating', update.file);
+                return new Set([update.file, ...files]);
+
+            case 'delete':
+                console.log('deleting', update.file);
+                const fixedSet = new Set(files);
+                fixedSet.delete(update.file);
+                return fixedSet;
+
+            default:
+                console.warn("unknown action", update.action);
+                return files;
+        }
+    }
+
+    sendUpdate(update: StateUpdate) {
+        const data = JSON.stringify(update);
+        this.sock.send(data);
+    }
+
+    onSockMessage = (e: MessageEvent) => {
+        const update = JSON.parse(e.data) as StateUpdate;
+        this.setState(prevState => ({files: this.applyUpdate(prevState.files, update)}));
     };
 
     onKeyDown = (e: KeyboardEvent) => {

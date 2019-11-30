@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-    entry: "./rtcsh/index.tsx",
+    entry: "./wssh/index.tsx",
 
     output: {
         filename: "bundle.js",

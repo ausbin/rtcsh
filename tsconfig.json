@@ -8,8 +8,8 @@
         "lib": ["ES6", "DOM"]
     },
     "include": [
-        "./rtcsh/**/*.ts",
-        "./rtcsh/**/*.tsx"
+        "./wssh/**/*.ts",
+        "./wssh/**/*.tsx"
     ],
     "exclude": [
         "node_modules",

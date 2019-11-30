@@ -1,8 +1,8 @@
 {
-  "name": "rtcsh",
+  "name": "wssh",
   "version": "1.0.0",
-  "description": "rtcsh",
-  "repository": "https://github.com/ausbin/rtcsh",
+  "description": "websocket sh",
+  "repository": "https://github.com/ausbin/wssh",
   "scripts": {
     "build": "webpack --mode=development && ./gen-html.sh dev",
     "prodBuild": "webpack --mode=production && ./gen-html.sh prod",
