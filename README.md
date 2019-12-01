@@ -1,6 +1,8 @@
 websocket sh
 ============
 
+try it: <https://ausb.in/wssh/>. open a few instances to see the magic
+
 getting started
 ---------------
 
