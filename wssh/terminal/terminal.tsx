@@ -32,7 +32,7 @@ export class Terminal extends React.Component<{}, TerminalState> {
     componentDidMount() {
         document.addEventListener('keydown', this.onKeyDown);
 
-        this.sock = new WebSocket('ws://' + window.location.host + '/ws');
+        this.sock = new WebSocket(((window.location.protocol == 'https:')? 'wss://' : 'ws://') + window.location.host + '/wssh/ws');
         this.sock.addEventListener('error', (e) => {
             console.error('websocket error', e);
         });

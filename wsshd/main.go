@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"net/url"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -120,8 +120,28 @@ type UpgradeHandler struct {
 	upgrader *websocket.Upgrader
 }
 
-func NewUpgradeHandler(game *Game) *UpgradeHandler {
-	return &UpgradeHandler{game, new(websocket.Upgrader)}
+func NewUpgradeHandler(game *Game, trustedOrigin string) *UpgradeHandler {
+	return &UpgradeHandler{game, &websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			log.Println("no origin header?")
+			return false
+		}
+
+		url, err := url.Parse(origin)
+		if err != nil {
+			log.Println("invalid origin header", origin, err)
+			return false
+		}
+
+		host := strings.Split(url.Host, ":")[0]
+		if trustedOrigin != host {
+			log.Println("untrusted origin", host, "blocked")
+			return false
+		} else {
+			return true
+		}
+	}}}
 }
 
 func (uh *UpgradeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -139,22 +159,19 @@ func (uh *UpgradeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var staticPath string
+	var staticPath, trustedOrigin string
 	flag.StringVar(&staticPath, "static-path", "", "path to static files to serve")
+	flag.StringVar(&trustedOrigin, "trusted-origin", "localhost", "trusted origin hostname")
 	flag.Parse()
-
-	if staticPath == "" {
-		fmt.Println("missing required arg -static-path\n")
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
 
 	game := NewGame()
 	go game.update()
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(staticPath)))
-	mux.Handle("/ws", NewUpgradeHandler(game))
+	if staticPath != "" {
+		mux.Handle("/wssh/", http.FileServer(http.Dir(staticPath)))
+	}
+	mux.Handle("/wssh/ws", NewUpgradeHandler(game, trustedOrigin))
 
 	log.Printf("listening on %s...", addr)
 	http.ListenAndServe(addr, mux)
